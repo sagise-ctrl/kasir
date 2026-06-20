@@ -41,7 +41,7 @@ async function cekKoneksiReal() {
     // Pakai image/favicon kecil sebagai ping, bukan GAS endpoint
     // Tambahkan timestamp agar tidak di-cache
     const res = await fetch(
-      `https://kasir-alpha.vercel.app/icon-192.png?t=${Date.now()}`,
+      `${window.location.origin}/icon-192.png?t=${Date.now()}`,
       {
         signal: controller.signal,
         cache: "no-store",

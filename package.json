@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "^0.22.0",
     "dexie": "^4.4.2",

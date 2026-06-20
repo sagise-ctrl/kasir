@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from "@zxing/browser";
+import {
+  BrowserMultiFormatReader,
+  BarcodeFormat,
+  DecodeHintType,
+} from "@zxing/library";
 
 /**
  * Hook khusus untuk barcode scanner dengan optimasi retail
@@ -109,9 +113,11 @@ export function useBarcodeScanner(onBarcodeDetected) {
         focusIntervalRef.current = setInterval(async () => {
           try {
             // Try to re-focus setiap 5 detik (bukan 2 detik)
-            await videoTrack.applyConstraints({
-              advanced: [{ focusMode: "continuous" }],
-            }).catch(() => {});
+            await videoTrack
+              .applyConstraints({
+                advanced: [{ focusMode: "continuous" }],
+              })
+              .catch(() => {});
           } catch {}
         }, 5000);
       }

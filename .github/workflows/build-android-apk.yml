@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       # Install Android SDK using maintained action (no deprecated commandline-tools URL)
       - name: Setup Android SDK

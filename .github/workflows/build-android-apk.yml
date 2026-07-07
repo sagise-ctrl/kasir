@@ -39,8 +39,15 @@ jobs:
         uses: android-actions/setup-android@v4
 
       - name: Configure Android SDK location for Gradle
+        shell: bash
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "--- android/local.properties ---"
+          cat android/local.properties
+          echo "--- sdk contents (first 20 entries) ---"
+          ls -la "$ANDROID_SDK_ROOT" | head -n 20
 
       - name: Build APK (debug)
         run: |

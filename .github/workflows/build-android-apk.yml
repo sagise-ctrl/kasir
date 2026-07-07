@@ -35,7 +35,7 @@ jobs:
           java-version: "17"
 
       # Install Android SDK using maintained action (no deprecated commandline-tools URL)
-- name: Setup Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
       - name: Configure Android SDK location for Gradle

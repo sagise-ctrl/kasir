@@ -2,8 +2,7 @@ name: Build Web + Android APK (Capacitor)
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -32,16 +31,14 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
-      # Install Android SDK components (minimal set for debug builds)
+      # Install Android SDK components (needed for Gradle/compile)
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          api-level: 34
-          build-tools: 34.0.0
-          target: android-34
+          cmdline-tools-version: 9.0
 
       - name: Build APK (debug)
         run: |

@@ -13,10 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (Capacitor CLI requires >=22)
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -34,11 +34,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # Install Android SDK components (needed for Gradle/compile)
+      # Install Android SDK using maintained action (no deprecated commandline-tools URL)
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 9.0
+        uses: android-actions/setup-android@v4
 
       - name: Build APK (debug)
         run: |
@@ -49,5 +47,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

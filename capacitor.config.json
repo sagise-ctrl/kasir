@@ -1,5 +1,10 @@
 {
   "appId": "com.kasir.app",
   "appName": "kasir",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "MlkitBarcodeScanner": {
+      "path": "plugins/mlkit-barcode-scanner"
+    }
+  }
 }

@@ -1,7 +1,10 @@
 package com.kasir.mlkitbarcode;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,7 +27,6 @@ import com.google.mlkit.vision.barcode.Barcode;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.barcode.common.BarcodeFormat;
 
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -33,9 +35,9 @@ import android.widget.Toast;
 import androidx.camera.core.Preview;
 import androidx.camera.core.Camera;
 
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
 
 public class CameraActivity extends android.app.Activity {
 
@@ -51,12 +53,18 @@ public class CameraActivity extends android.app.Activity {
     private boolean scanning = true;
 
     private BarcodeScanner barcodeScanner;
+    private String sessionId;
+
+    /** Receiver to close this activity when stopScan is called from JS. */
+    private BroadcastReceiver stopReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        sessionId = getIntent().getStringExtra(EXTRA_SCANNER_SESSION_ID);
 
         FrameLayout root = new FrameLayout(this);
         root.setLayoutParams(new FrameLayout.LayoutParams(
@@ -74,6 +82,9 @@ public class CameraActivity extends android.app.Activity {
 
         initScanner();
 
+        // Register receiver to listen for stopScan command from plugin
+        registerStopReceiver();
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQ);
             return;
@@ -83,16 +94,12 @@ public class CameraActivity extends android.app.Activity {
     }
 
     private void initScanner() {
-        // Default: barcode formats retail (EAN/UPC/Code128)
-        // We’ll rely on ML Kit’s defaults; can be refined later.
-        // If you need format filtering, extend with intent extras.
         barcodeScanner = BarcodeScanning.getClient();
     }
 
     private void startCamera() {
-        // Use CameraX bindings
-        ListenableFuture<androidx.camera.lifecycle.ProcessCameraProvider> cameraProviderFuture =
-                androidx.camera.lifecycle.ProcessCameraProvider.getInstance(this);
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                ProcessCameraProvider.getInstance(this);
 
         cameraProviderFuture.addListener(() -> {
             try {
@@ -131,7 +138,6 @@ public class CameraActivity extends android.app.Activity {
         }
 
         try {
-            // ML Kit needs InputImage in proper format.
             InputImage inputImage = InputImage.fromMediaImage(
                     imageProxy.getImage(),
                     imageProxy.getImageInfo().getRotationDegrees()
@@ -150,7 +156,6 @@ public class CameraActivity extends android.app.Activity {
                                 String raw = b.getRawValue();
                                 if (raw != null && !raw.isEmpty()) {
                                     deliverBarcode(raw);
-                                    // Keep scanning after delivery; throttling happens in JS hook.
                                 }
                             }
 
@@ -171,17 +176,45 @@ public class CameraActivity extends android.app.Activity {
     }
 
     private void deliverBarcode(String barcode) {
-        // Notify via broadcast to plugin (session_id)
-        String sessionId = getIntent().getStringExtra(EXTRA_SCANNER_SESSION_ID);
         Intent i = new Intent(MlkitBarcodeScannerPlugin.ACTION_BARCODE_DETECTED);
         i.putExtra(MlkitBarcodeScannerPlugin.EXTRA_BARCODE, barcode);
         i.putExtra(MlkitBarcodeScannerPlugin.EXTRA_SESSION_ID, sessionId);
-        sendBroadcast(i);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(i);
+    }
+
+    // ---------------------------------------------------------------
+    // Stop receiver: close this activity when plugin sends STOP_SCAN
+    // ---------------------------------------------------------------
+    private void registerStopReceiver() {
+        stopReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String session = intent.getStringExtra(MlkitBarcodeScannerPlugin.EXTRA_SESSION_ID);
+                // Only close if session matches (or if no session id was set)
+                if (session == null || session.equals(sessionId)) {
+                    Log.d(TAG, "Stop scan received, finishing activity");
+                    finish();
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter(MlkitBarcodeScannerPlugin.ACTION_STOP_SCAN);
+        LocalBroadcastManager.getInstance(this).registerReceiver(stopReceiver, filter);
+    }
+
+    private void unregisterStopReceiver() {
+        if (stopReceiver != null) {
+            try {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(stopReceiver);
+            } catch (IllegalArgumentException ignored) {}
+            stopReceiver = null;
+        }
     }
 
     @Override
     protected void onDestroy() {
         scanning = false;
+        unregisterStopReceiver();
         try {
             if (cameraProvider != null) cameraProvider.unbindAll();
         } catch (Exception ignored) {}

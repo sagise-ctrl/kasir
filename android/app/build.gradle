@@ -40,6 +40,7 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    implementation project(':mlkit-barcode-scanner')
 }
 
 apply from: 'capacitor.build.gradle'

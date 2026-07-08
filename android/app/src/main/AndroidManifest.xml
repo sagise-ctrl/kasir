@@ -24,6 +24,14 @@
 
         </activity>
 
+        <!-- Native ML Kit Barcode Scanner Activity -->
+        <activity
+            android:name="com.kasir.mlkitbarcode.CameraActivity"
+            android:label="Barcode Scanner"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

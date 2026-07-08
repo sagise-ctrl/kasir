@@ -2,4 +2,8 @@ include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
+// Custom plugin: ML Kit Barcode Scanner
+include ':mlkit-barcode-scanner'
+project(':mlkit-barcode-scanner').projectDir = new File('../plugins/mlkit-barcode-scanner/android')
+
 apply from: 'capacitor.settings.gradle'

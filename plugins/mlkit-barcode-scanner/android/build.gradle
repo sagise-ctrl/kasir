@@ -16,8 +16,8 @@ android {
 }
 
 dependencies {
-    implementation project(':capacitor-cordova-android-plugins')
-    implementation "com.getcapacitor:capacitor-android:0.0.0"
+    // Reference Capacitor Android from the local project (NOT as Maven artifact)
+    implementation project(':capacitor-android')
 
     // ML Kit Barcode Scanning
     implementation 'com.google.mlkit:barcode-scanning:17.2.0'

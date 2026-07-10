@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.getcapacitor.JSObject;
@@ -15,9 +14,17 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 @CapacitorPlugin(
-    name = "MlkitBarcodeScanner"
+    name = "MlkitBarcodeScanner",
+    permissions = {
+        @Permission(
+            alias = "camera",
+            strings = { Manifest.permission.CAMERA }
+        )
+    }
 )
 public class MlkitBarcodeScannerPlugin extends Plugin {
 
@@ -35,6 +42,9 @@ public class MlkitBarcodeScannerPlugin extends Plugin {
     /** Broadcast receiver that forwards barcode results to the JS listener. */
     private BroadcastReceiver barcodeReceiver;
 
+    /** Saved call for requestCameraPermission. */
+    private PluginCall permissionCall = null;
+
     @Override
     public void load() {
         super.load();
@@ -42,17 +52,30 @@ public class MlkitBarcodeScannerPlugin extends Plugin {
     }
 
     // ---------------------------------------------------------------
-    // requestCameraPermission
+    // requestCameraPermission  (Capacitor v8 pattern)
     // ---------------------------------------------------------------
     @PluginMethod
     public void requestCameraPermission(PluginCall call) {
-        try {
-            // Delegate to Capacitor's permission system.
-            // It will handle the "granted" / "denied" states.
-            askForPermission(call, Manifest.permission.CAMERA);
-        } catch (Exception e) {
-            call.reject(e.getMessage(), e);
+        // Check if already granted via the @CapacitorPlugin permission alias
+        if (getPermissionState("camera") == com.getcapacitor.PermissionState.GRANTED) {
+            JSObject res = new JSObject();
+            res.put("granted", true);
+            call.resolve(res);
+            return;
         }
+
+        permissionCall = call;
+        requestPermissionForAlias("camera", call, "cameraPermissionCallback");
+    }
+
+    @PermissionCallback
+    public void cameraPermissionCallback(PluginCall call) {
+        // This is called after the user responds to the permission dialog
+        boolean granted = (getPermissionState("camera") == com.getcapacitor.PermissionState.GRANTED);
+        JSObject res = new JSObject();
+        res.put("granted", granted);
+        call.resolve(res);
+        permissionCall = null;
     }
 
     // ---------------------------------------------------------------
@@ -61,6 +84,12 @@ public class MlkitBarcodeScannerPlugin extends Plugin {
     @PluginMethod
     public void startScan(PluginCall call) {
         try {
+            // Verify camera permission first
+            if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) {
+                call.reject("Camera permission not granted. Call requestCameraPermission() first.");
+                return;
+            }
+
             // Generate a unique session id for this scan invocation
             currentSessionId = java.util.UUID.randomUUID().toString();
 

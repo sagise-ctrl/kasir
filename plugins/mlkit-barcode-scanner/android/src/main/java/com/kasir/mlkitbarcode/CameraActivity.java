@@ -9,8 +9,11 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.camera.core.CameraSelector;
@@ -30,7 +33,6 @@ import com.google.mlkit.vision.common.InputImage;
 
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Toast;
 
 import androidx.camera.core.Preview;
 import androidx.camera.core.Camera;
@@ -39,7 +41,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.List;
 
-public class CameraActivity extends android.app.Activity {
+public class CameraActivity extends AppCompatActivity {
 
     public static final String EXTRA_IS_BACKGROUND = "is_background";
     public static final String EXTRA_SCANNER_SESSION_ID = "session_id";
@@ -61,23 +63,41 @@ public class CameraActivity extends android.app.Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        
+        // Use a dark theme to avoid white flash
+        setTheme(android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sessionId = getIntent().getStringExtra(EXTRA_SCANNER_SESSION_ID);
 
+        // Create root layout with black background
         FrameLayout root = new FrameLayout(this);
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
+        root.setBackgroundColor(0xFF000000); // Black background
 
+        // Create PreviewView
         previewView = new PreviewView(this);
         previewView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         root.addView(previewView);
+
+        // Add status text (hidden by default)
+        TextView statusText = new TextView(this);
+        statusText.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        statusText.setText("Initializing camera...");
+        statusText.setTextColor(0xFFFFFFFF);
+        statusText.setPadding(32, 32, 32, 32);
+        statusText.setTag("status");
+        root.addView(statusText);
+
         setContentView(root);
 
         initScanner();
@@ -86,6 +106,7 @@ public class CameraActivity extends android.app.Activity {
         registerStopReceiver();
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            updateStatus("Requesting camera permission...");
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQ);
             return;
         }
@@ -93,42 +114,78 @@ public class CameraActivity extends android.app.Activity {
         startCamera();
     }
 
+    private void updateStatus(String message) {
+        TextView statusText = findViewById(android.R.id.content);
+        if (statusText != null && statusText.getTag() != null && statusText.getTag().equals("status")) {
+            statusText.setText(message);
+        }
+        Log.d(TAG, message);
+    }
+
     private void initScanner() {
-        barcodeScanner = BarcodeScanning.getClient();
+        try {
+            barcodeScanner = BarcodeScanning.getClient();
+            Log.i(TAG, "ML Kit barcode scanner initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize ML Kit scanner", e);
+            updateStatus("Error: " + e.getMessage());
+        }
     }
 
     private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
-                ProcessCameraProvider.getInstance(this);
+        try {
+            updateStatus("Starting camera...");
+            
+            ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                    ProcessCameraProvider.getInstance(this);
 
-        cameraProviderFuture.addListener(() -> {
-            try {
-                cameraProvider = cameraProviderFuture.get();
-                bindUseCases();
-            } catch (Exception e) {
-                Log.e(TAG, "Camera provider error", e);
-            }
-        }, ContextCompat.getMainExecutor(this));
+            cameraProviderFuture.addListener(() -> {
+                try {
+                    cameraProvider = cameraProviderFuture.get();
+                    Log.i(TAG, "Camera provider obtained");
+                    bindUseCases();
+                } catch (Exception e) {
+                    Log.e(TAG, "Camera provider error", e);
+                    updateStatus("Camera error: " + e.getMessage());
+                    Toast.makeText(this, "Failed to start camera: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }, ContextCompat.getMainExecutor(this));
+        } catch (Exception e) {
+            Log.e(TAG, "startCamera failed", e);
+            updateStatus("Camera error: " + e.getMessage());
+        }
     }
 
     private void bindUseCases() {
-        if (cameraProvider == null) return;
+        if (cameraProvider == null) {
+            updateStatus("Camera provider is null");
+            return;
+        }
 
-        Preview preview = new Preview.Builder().build();
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        try {
+            Preview preview = new Preview.Builder().build();
+            preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-        ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build();
+            ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build();
 
-        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), this::analyzeImage);
+            imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), this::analyzeImage);
 
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
+            CameraSelector cameraSelector = new CameraSelector.Builder()
+                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                    .build();
 
-        cameraProvider.unbindAll();
-        camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, preview, imageAnalysis);
+            cameraProvider.unbindAll();
+            camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, preview, imageAnalysis);
+            
+            Log.i(TAG, "Camera bound to lifecycle successfully");
+            updateStatus("Camera ready - scanning for barcodes...");
+        } catch (Exception e) {
+            Log.e(TAG, "bindUseCases failed", e);
+            updateStatus("Camera error: " + e.getMessage());
+            Toast.makeText(this, "Failed to bind camera: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void analyzeImage(@NonNull ImageProxy imageProxy) {
@@ -226,8 +283,11 @@ public class CameraActivity extends android.app.Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CAMERA_PERMISSION_REQ) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.i(TAG, "Camera permission granted");
                 startCamera();
             } else {
+                Log.e(TAG, "Camera permission denied");
+                updateStatus("Camera permission denied");
                 Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
                 finish();
             }

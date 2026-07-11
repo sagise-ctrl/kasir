@@ -21,10 +21,10 @@ repositories {
 }
 
 dependencies {
-    // Capacitor Android — referenced as local project (NOT Maven artifact)
+    // Capacitor Android — referenced as local project
     implementation project(':capacitor-android')
 
-    // AppCompat — required by Capacitor Plugin base class transitively
+    // AppCompat — required by Capacitor Plugin base class
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
 
     // ML Kit Barcode Scanning
@@ -39,6 +39,6 @@ dependencies {
     // Android Lifecycle
     implementation "androidx.lifecycle:lifecycle-runtime:2.8.4"
 
-    // LocalBroadcastManager (for sending barcode results to plugin)
+    // LocalBroadcastManager
     implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
 }
